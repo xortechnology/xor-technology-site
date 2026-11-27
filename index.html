@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>XOR Technology</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="XOR Technology builds data recovery and drive diagnostic software. A trading name of Private Key Ltd.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@112..125,500;112..125,700;112..125,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a single long page set on a faint 8-column bit grid; hero = live XOR parity rebuild; sections read like a datasheet (label column + content). */
+:root{
+  --bg:#F3F4F1; --panel:#FFFFFF; --fg:#111318; --muted:#5A6070; --line:#D9DCE2;
+  --one:#0B63D6; --one-soft:#DCE8FA; --par:#B45309; --par-soft:#F6E7D3; --bad:#B42318; --bad-soft:#F8DEDB;
+  --grid:rgba(17,19,24,.045);
+  --display:"Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body:"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0C0E12; --panel:#13161C; --fg:#E7E9EE; --muted:#9097A6; --line:#262B35;
+  --one:#5AA8FF; --one-soft:#142742; --par:#F0A64B; --par-soft:#33240F; --bad:#FF7A6E; --bad-soft:#3A1714;
+  --grid:rgba(231,233,238,.05); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0C0E12; --panel:#13161C; --fg:#E7E9EE; --muted:#9097A6; --line:#262B35;
+  --one:#5AA8FF; --one-soft:#142742; --par:#F0A64B; --par-soft:#33240F; --bad:#FF7A6E; --bad-soft:#3A1714;
+  --grid:rgba(231,233,238,.05); color-scheme:dark}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 var(--body)}
+#bitfield{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block}
+header,main,footer{position:relative;z-index:1}
+header{z-index:5}
+.hero>div:first-child{background:radial-gradient(closest-side,color-mix(in srgb,var(--bg) 70%,transparent),transparent);border-radius:24px}
+a{color:var(--one);text-underline-offset:3px}
+a:focus-visible,button:focus-visible{outline:2px solid var(--one);outline-offset:3px;border-radius:4px}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.mono{font-family:var(--mono)}
+.label{font:500 12px/1.2 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* header */
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:14px}
+.mark{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--fg)}
+.mark svg{width:28px;height:28px;flex:none}
+.mark b{font:800 20px/1 var(--display);font-stretch:125%;letter-spacing:.02em}
+.mark span{font:400 13px/1 var(--mono);color:var(--muted)}
+nav{display:flex;gap:22px;flex-wrap:wrap}
+nav a{color:var(--muted);text-decoration:none;font:500 14px/1 var(--mono)}
+nav a:hover{color:var(--fg)}
+@media (max-width:640px){nav{display:none}}
+
+/* hero */
+.hero{padding-block:72px 56px;display:grid;grid-template-columns:1.05fr 1fr;gap:56px;align-items:center}
+.hero>*{min-width:0}
+@media (max-width:900px){.hero{grid-template-columns:1fr;gap:40px;padding-block:48px 40px}}
+h1{font:800 clamp(44px,7vw,88px)/.95 var(--display);font-stretch:125%;letter-spacing:-.01em;margin:16px 0 24px;text-wrap:balance}
+h1 .op{color:var(--one);font-family:var(--mono);font-weight:500;font-stretch:100%}
+.lead{font-size:19px;max-width:34em;color:var(--fg);margin:0 0 28px}
+.cta{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 18px;border-radius:6px;font:600 15px/1 var(--mono);text-decoration:none;border:1px solid var(--fg);color:var(--bg);background:var(--fg);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--fg)}
+.btn:hover{transform:translateY(-1px)}
+
+/* raid demo */
+.demo{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px}
+.demo-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.demo-head h2{font:700 16px/1.2 var(--display);font-stretch:112%;margin:0}
+.disks{display:grid;gap:10px}
+.disk{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;transition:background .25s,border-color .25s}
+.disk.parity{background:var(--par-soft);border-color:color-mix(in srgb,var(--par) 35%,var(--line))}
+.disk.failed{background:var(--bad-soft);border-color:var(--bad)}
+.disk.rebuilt{border-color:var(--one);box-shadow:0 0 0 1px var(--one) inset}
+.dname{font:600 13px/1.1 var(--mono)}
+.dname small{display:block;font-weight:400;color:var(--muted);font-size:11px;margin-top:3px}
+.bits{display:flex;gap:4px;flex-wrap:nowrap;min-width:0}
+.bit{width:26px;height:30px;display:grid;place-items:center;border-radius:4px;border:1px solid var(--line);font:600 14px/1 var(--mono);background:transparent;color:var(--muted);cursor:pointer;padding:0;transition:background .15s,color .15s}
+.bit.on{background:var(--one-soft);color:var(--one);border-color:color-mix(in srgb,var(--one) 45%,var(--line))}
+.parity .bit{cursor:default}
+.parity .bit.on{background:color-mix(in srgb,var(--par) 18%,transparent);color:var(--par);border-color:color-mix(in srgb,var(--par) 45%,var(--line))}
+.failed .bit{color:var(--bad);border-style:dashed;cursor:default}
+.meta{text-align:right;font:500 12px/1.35 var(--mono);color:var(--muted);min-width:64px}
+.meta b{display:block;font-size:18px;color:var(--fg);font-weight:600}
+.failed .meta b{color:var(--bad);font-size:13px;letter-spacing:.06em;padding-block:3px}
+.tools{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}
+.eq{font:500 13px/1.4 var(--mono);color:var(--muted)}
+.eq strong{color:var(--fg)}
+.small-btn{font:600 13px/1 var(--mono);padding:9px 12px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.small-btn:disabled{opacity:.45;cursor:not-allowed}
+.small-btn.go{border-color:var(--one);color:var(--one)}
+.status{margin-top:12px;font:13px/1.5 var(--mono);color:var(--muted);min-height:1.5em}
+@media (max-width:460px){.bit{width:22px;height:28px;font-size:12px}.bits{gap:3px}.disk{grid-template-columns:36px 1fr auto;gap:8px;padding:9px}.meta{min-width:48px}}
+
+/* sections */
+section.block{border-top:1px solid var(--line);padding-block:72px}
+.row{display:grid;grid-template-columns:220px 1fr;gap:40px}
+.row>*{min-width:0}
+@media (max-width:820px){.row{grid-template-columns:1fr;gap:16px}section.block{padding-block:52px}}
+h2.sec{font:800 clamp(28px,3.6vw,40px)/1.05 var(--display);font-stretch:118%;margin:0 0 18px;text-wrap:balance;max-width:20em}
+.intro{max-width:40em;color:var(--muted);margin:0 0 36px;font-size:17px}
+
+.products{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media (max-width:980px){.products{grid-template-columns:1fr}}
+.prod{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:24px;display:flex;flex-direction:column;gap:12px}
+.prod .tag{align-self:flex-start;font:600 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:6px 8px;border-radius:4px;background:var(--one-soft);color:var(--one)}
+.prod .tag.free{background:var(--par-soft);color:var(--par)}
+.prod h3{font:700 20px/1.2 var(--display);font-stretch:112%;margin:0}
+.prod p{margin:0;color:var(--muted)}
+.prod ul{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:15px}
+.prod li{padding-left:22px;position:relative}
+.prod li::before{content:"1";position:absolute;left:0;top:1px;font:600 12px/1.5 var(--mono);color:var(--one)}
+.prod .more{margin-top:auto;font:600 14px/1 var(--mono)}
+
+.principles{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+@media (max-width:820px){.principles{grid-template-columns:1fr}}
+.pr{padding:24px;border-right:1px solid var(--line)}
+.pr:last-child{border-right:0}
+@media (max-width:820px){.pr{border-right:0;border-bottom:1px solid var(--line)}.pr:last-child{border-bottom:0}}
+.pr .code{font:600 13px/1 var(--mono);color:var(--par)}
+.pr h3{font:700 18px/1.25 var(--display);font-stretch:112%;margin:10px 0 8px}
+.pr p{margin:0;color:var(--muted);font-size:15px}
+
+.truth{display:grid;grid-template-columns:auto 1fr;gap:40px;align-items:start}
+@media (max-width:700px){.truth{grid-template-columns:1fr}}
+table.tt{border-collapse:collapse;font:500 16px/1 var(--mono);font-variant-numeric:tabular-nums;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tt th,.tt td{padding:12px 22px;text-align:center;border-bottom:1px solid var(--line)}
+.tt th{font-size:12px;letter-spacing:.1em;color:var(--muted);font-weight:500}
+.tt td.r{color:var(--one);font-weight:600;border-left:1px solid var(--line)}
+.tt tr:last-child td{border-bottom:0}
+.prose{max-width:38em}
+.prose p{margin:0 0 14px}
+
+.contact{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:820px){.contact{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:24px}
+.card h3{font:700 18px/1.25 var(--display);font-stretch:112%;margin:0 0 8px}
+.card p{margin:0 0 14px;color:var(--muted)}
+.copyrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#enq{display:grid;gap:14px}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:520px){.f2{grid-template-columns:1fr}}
+.fld{display:grid;gap:6px;min-width:0}
+.fld label{font:500 12px/1.2 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.fld label span{text-transform:none;letter-spacing:0}
+.fld input,.fld select,.fld textarea{width:100%;font:15px/1.4 var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.fld textarea{resize:vertical;min-height:96px}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:2px solid var(--one);outline-offset:1px;border-color:var(--one)}
+.fld.bad input,.fld.bad textarea{border-color:var(--bad)}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.fmsg{margin:0;font:14px/1.5 var(--mono);color:var(--muted);min-height:1.5em}
+.fmsg.ok{color:var(--one)}
+.fmsg.err{color:var(--bad)}
+.btn:disabled{opacity:.6;cursor:wait;transform:none}
+
+footer{border-top:1px solid var(--line);padding-block:32px 40px;color:var(--muted);font-size:13px}
+footer .wrap{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+footer p{margin:0;max-width:44em}
+.stream{font:500 12px/1 var(--mono);color:var(--muted);letter-spacing:.08em;white-space:nowrap;overflow:hidden;text-overflow:clip;max-width:100%}
+</style>
+
+<canvas id="bitfield" aria-hidden="true"></canvas>
+<header>
+  <div class="wrap bar">
+    <a class="mark" href="#top" aria-label="XOR Technology home">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M16 3v26M3 16h26" stroke="currentColor" stroke-width="2.5"/></svg>
+      <b>XOR</b><span>.technology</span>
+    </a>
+    <nav aria-label="Main">
+      <a href="#software">Software</a>
+      <a href="#principles">How we build</a>
+      <a href="#licensing">Licensing</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <div>
+      <p class="label">Data recovery software · Bury, United Kingdom</p>
+      <h1>Lose one.<br>XOR the rest.<br>Get it <span class="op">back</span>.</h1>
+      <p class="lead">XOR Technology designs and builds data recovery and drive diagnostic software, written by people who recover data for a living.</p>
+      <div class="cta">
+        <a class="btn" href="#software">See the software</a>
+        <a class="btn ghost" href="#licensing">License our software</a>
+      </div>
+    </div>
+
+    <div class="demo" aria-labelledby="demo-title">
+      <div class="demo-head">
+        <h2 id="demo-title">One stripe of a RAID 5 array</h2>
+        <span class="label">Try it</span>
+      </div>
+      <div class="disks" id="disks"></div>
+      <div class="tools">
+        <span class="eq" id="eq">P = D1 ⊕ D2 ⊕ D3</span>
+        <div class="copyrow">
+          <button class="small-btn" id="fail" type="button">Fail a disk</button>
+          <button class="small-btn go" id="rebuild" type="button" disabled>Rebuild</button>
+        </div>
+      </div>
+      <p class="status" id="status" aria-live="polite">Tap any bit in D1–D3. The parity disk updates itself.</p>
+    </div>
+  </div>
+
+  <section class="block" id="software">
+    <div class="wrap row">
+      <p class="label">01 · Software</p>
+      <div>
+        <h2 class="sec">Recovery tools for Windows, sold worldwide by Data Clinic</h2>
+        <p class="intro">Our software is licensed to Data Clinic Ltd, which sells and supports it at dataclinic.com. Scanning and previews are free, so nobody pays to find out whether their files are there.</p>
+        <div class="products">
+          <article class="prod">
+            <span class="tag">Paid licence</span>
+            <h3>Recovery for Hard Drives</h3>
+            <p>Deleted, formatted and lost files from hard drives, SSDs and USB sticks.</p>
+            <ul>
+              <li>Quick scan, deep scan, and imaging for struggling drives</li>
+              <li>Reads NTFS, exFAT, FAT32 and Mac APFS, HFS+ and HFS</li>
+              <li>Checks the drive's health report before it scans</li>
+              <li>Strictly read-only</li>
+            </ul>
+            <a class="more" href="https://www.dataclinic.com/hard-drive-recovery-software/" target="_blank" rel="noopener">dataclinic.com →</a>
+          </article>
+          <article class="prod">
+            <span class="tag free">Free</span>
+            <h3>Recovery for Memory Cards</h3>
+            <p>Deleted and formatted photos and videos from SD and microSD cards.</p>
+            <ul>
+              <li>Quick scan keeps original names and folders</li>
+              <li>Deep scan recognises 17 photo, video, audio and document formats</li>
+              <li>Checks every photo it finds all the way through</li>
+            </ul>
+            <a class="more" href="https://www.dataclinic.com/memory-card-recovery-software/" target="_blank" rel="noopener">dataclinic.com →</a>
+          </article>
+          <article class="prod">
+            <span class="tag free">Free · beta</span>
+            <h3>Drive Health Check</h3>
+            <p>Reads every drive's SMART report and says plainly what to do.</p>
+            <ul>
+              <li>One verdict per drive: Healthy, Back it up now, or Stop using it</li>
+              <li>Optional surface test</li>
+              <li>Never writes to any drive</li>
+            </ul>
+            <a class="more" href="https://www.dataclinic.com/drive-health-check/" target="_blank" rel="noopener">dataclinic.com →</a>
+          </article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="principles">
+    <div class="wrap row">
+      <p class="label">02 · How we build</p>
+      <div>
+        <h2 class="sec">Rules the software follows, every time</h2>
+        <p class="intro">They come from years of working on failed drives in a recovery lab, where the wrong click costs someone their data.</p>
+        <div class="principles">
+          <div class="pr"><span class="code">O_RDONLY</span><h3>Read, never write</h3><p>The drive being recovered is opened read-only, and recovered files can only be saved to a different drive.</p></div>
+          <div class="pr"><span class="code">SMART 05 · C5 · C6</span><h3>Health before scanning</h3><p>The drive's own health report is read first. A drive that reports failure isn't scanned, and one showing warning signs is imaged once instead of read over and over.</p></div>
+          <div class="pr"><span class="code">EXIT 0</span><h3>Know when to stop</h3><p>When a drive clicks, isn't detected or shows 0&nbsp;MB, software is the wrong tool. Ours says so and points to a lab.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="name">
+    <div class="wrap row">
+      <p class="label">03 · The name</p>
+      <div class="truth">
+        <table class="tt" aria-label="XOR truth table">
+          <thead><tr><th>A</th><th>B</th><th>A ⊕ B</th></tr></thead>
+          <tbody>
+            <tr><td>0</td><td>0</td><td class="r">0</td></tr>
+            <tr><td>0</td><td>1</td><td class="r">1</td></tr>
+            <tr><td>1</td><td>0</td><td class="r">1</td></tr>
+            <tr><td>1</td><td>1</td><td class="r">0</td></tr>
+          </tbody>
+        </table>
+        <div class="prose">
+          <h2 class="sec">Why XOR</h2>
+          <p>Exclusive OR returns 1 when its two inputs differ. It is also its own inverse: apply the same value twice and you are back where you started.</p>
+          <p>That property is what lets a RAID 5 array survive a dead disk. The parity block is every data block XORed together, so any one missing block equals the XOR of everything that is left. The panel at the top of this page does exactly that, one byte at a time.</p>
+          <p>Recovery is the same idea at every scale: find what is still there, and work out what is missing from it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="licensing">
+    <div class="wrap row">
+      <p class="label">04 · Licensing</p>
+      <div>
+        <h2 class="sec">License our recovery engine</h2>
+        <p class="intro">Our software is licensed non-exclusively. If you run a recovery lab, a repair business or a software brand and want recovery or drive diagnostics under your own name, tell us what you need.</p>
+        <div class="contact" id="contact">
+          <div class="card">
+            <h3>Licensing and white-label enquiries</h3>
+            <p>Tell us a little about your business and we'll reply by email.</p>
+            <form id="enq" novalidate>
+              <div class="f2">
+                <div class="fld"><label for="f-name">Your name</label><input id="f-name" name="name" autocomplete="name" required maxlength="120"></div>
+                <div class="fld"><label for="f-company">Company <span>(optional)</span></label><input id="f-company" name="company" autocomplete="organization" maxlength="160"></div>
+              </div>
+              <div class="fld"><label for="f-email">Email</label><input id="f-email" name="email" type="email" autocomplete="email" required maxlength="200"></div>
+              <div class="f2">
+                <div class="fld"><label for="f-interest">Interested in</label>
+                  <select id="f-interest" name="interest">
+                    <option>Recovery for Hard Drives</option>
+                    <option>Recovery for Memory Cards</option>
+                    <option>Drive Health Check</option>
+                    <option>White-label under our own brand</option>
+                    <option>Something else</option>
+                  </select></div>
+                <div class="fld"><label for="f-users">Expected users</label>
+                  <select id="f-users" name="users">
+                    <option>Not sure yet</option>
+                    <option>1–10</option>
+                    <option>11–100</option>
+                    <option>101–1,000</option>
+                    <option>Over 1,000</option>
+                  </select></div>
+              </div>
+              <div class="fld"><label for="f-message">What do you need?</label><textarea id="f-message" name="message" rows="4" required maxlength="4000"></textarea></div>
+              <div class="hp" aria-hidden="true"><label for="f-website">Leave this empty</label><input id="f-website" name="website" tabindex="-1" autocomplete="off"></div>
+              <div class="copyrow"><button class="btn" id="f-send" type="submit">Send enquiry</button></div>
+              <p class="fmsg" id="f-msg" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+          <div class="card">
+            <h3>Buying or support for the software</h3>
+            <p>Licences, downloads and help for Recovery for Hard Drives and the free tools are handled by Data Clinic.</p>
+            <a class="btn ghost" href="https://www.dataclinic.com/support/" target="_blank" rel="noopener">dataclinic.com support</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>XOR Technology is a trading name of Private Key Ltd. Registered in England and Wales, company number 15003321. Registered office: The Pavilions, Bridge Hall Lane, Bury BL9 7NX, United Kingdom.</p>
+    <p class="stream" aria-hidden="true">01011000 01001111 01010010</p>
+  </div>
+</footer>
+
+<script>
+// Background: a field of bits. Random bits flip (and glow in the accent), and a scan line
+// sweeps down, XOR-ing each row it crosses with a moving key. Static when reduced motion is on.
+(function(){
+  var cv=document.getElementById('bitfield'); if(!cv||!cv.getContext) return;
+  var ctx=cv.getContext('2d'), CELL=18, cols=0, rows=0, bits, heat, dpr=1, scanY=-40, key=0xA5;
+  var still=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var col={fg:'#111',one:'#06c',par:'#b50'};
+  function readColors(){var s=getComputedStyle(document.documentElement);
+    col.fg=s.getPropertyValue('--fg').trim()||col.fg; col.one=s.getPropertyValue('--one').trim()||col.one; col.par=s.getPropertyValue('--par').trim()||col.par;}
+  function size(){
+    dpr=Math.min(window.devicePixelRatio||1,2);
+    var w=window.innerWidth,h=window.innerHeight;
+    cv.width=w*dpr; cv.height=h*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+    CELL=w<600?16:18; cols=Math.ceil(w/CELL)+1; rows=Math.ceil(h/CELL)+1;
+    bits=new Uint8Array(cols*rows); heat=new Float32Array(cols*rows);
+    for(var i=0;i<bits.length;i++) bits[i]=Math.random()<.5?1:0;
+    draw();
+  }
+  function rgba(c,a){ctx.globalAlpha=a;ctx.fillStyle=c;}
+  function draw(){
+    var w=cv.width/dpr,h=cv.height/dpr; ctx.clearRect(0,0,w,h);
+    ctx.font='500 '+(CELL-6)+'px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    var scanRow=Math.floor(scanY/CELL);
+    for(var r=0;r<rows;r++){
+      var near=Math.abs(r-scanRow), band=near<3?(3-near)/3:0;
+      for(var c=0;c<cols;c++){
+        var i=r*cols+c, b=bits[i], x=c*CELL+CELL/2, y=r*CELL+CELL/2, hh=heat[i];
+        if(hh>0.04){rgba(col.one,Math.min(.85,.12+hh*.75));}
+        else if(band>0){rgba(col.par,.10+band*.28);}
+        else rgba(col.fg,b?.15:.075);
+        ctx.fillText(b?'1':'0',x,y);
+      }
+    }
+    if(scanRow>=0&&scanRow<rows){ctx.globalAlpha=.10;ctx.fillStyle=col.par;ctx.fillRect(0,scanRow*CELL,w,1);}
+    ctx.globalAlpha=1;
+  }
+  var last=0;
+  function tick(t){
+    requestAnimationFrame(tick);
+    if(document.hidden||t-last<70) return; last=t;
+    var n=Math.max(4,Math.floor(bits.length*.0035));
+    for(var k=0;k<n;k++){var i=(Math.random()*bits.length)|0; bits[i]^=1; heat[i]=1;}
+    for(var j=0;j<heat.length;j++) if(heat[j]>0) heat[j]*=.9;
+    var before=Math.floor(scanY/CELL); scanY+=CELL*.5; var after=Math.floor(scanY/CELL);
+    if(after!==before&&after>=0&&after<rows){ key=((key<<1)|(key>>7))&255;
+      for(var c2=0;c2<cols;c2++){ if((key>>(c2&7))&1){var ii=after*cols+c2; bits[ii]^=1;} } }
+    if(scanY>rows*CELL+80) scanY=-CELL*6;
+    draw();
+  }
+  readColors(); size();
+  window.addEventListener('resize',function(){clearTimeout(size._t);size._t=setTimeout(size,150);});
+  if(window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(){readColors();draw();});
+  new MutationObserver(function(){readColors();draw();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(draw);
+  if(!still) requestAnimationFrame(tick);
+})();
+
+(function(){
+  // One stripe: three data bytes spelling "XOR", plus parity.
+  var data=[0x58,0x4F,0x52], failed=-1, rebuilt=-1;
+  var el=document.getElementById('disks'), status=document.getElementById('status');
+  var failBtn=document.getElementById('fail'), rebBtn=document.getElementById('rebuild'), eq=document.getElementById('eq');
+  var names=['D1','D2','D3','P'];
+  function parity(){return data[0]^data[1]^data[2];}
+  function val(i){return i===3?parity():data[i];}
+  function ch(v){return v>=32&&v<127?String.fromCharCode(v):'·';}
+  function hex(v){return '0x'+v.toString(16).toUpperCase().padStart(2,'0');}
+  function render(){
+    el.innerHTML='';
+    for(var i=0;i<4;i++){
+      var d=document.createElement('div');
+      d.className='disk'+(i===3?' parity':'')+(i===failed?' failed':'')+(i===rebuilt?' rebuilt':'');
+      var nm=document.createElement('div'); nm.className='dname';
+      nm.innerHTML=names[i]+'<small>'+(i===3?'parity':'data')+'</small>';
+      var bits=document.createElement('div'); bits.className='bits';
+      var v=val(i);
+      for(var b=7;b>=0;b--){
+        var bt=document.createElement('button'); bt.type='button'; bt.className='bit';
+        if(i===failed){bt.textContent='?';bt.disabled=true;bt.setAttribute('aria-label','unknown bit');}
+        else{
+          var on=(v>>b)&1; bt.textContent=on; if(on) bt.classList.add('on');
+          if(i<3 && failed<0){ (function(i,b){bt.addEventListener('click',function(){data[i]^=(1<<b);rebuilt=-1;render();});})(i,b);
+            bt.setAttribute('aria-label',names[i]+' bit '+b+' is '+on+', press to flip'); }
+          else {bt.tabIndex=-1;bt.setAttribute('aria-hidden','true');}
+        }
+        bits.appendChild(bt);
+      }
+      var m=document.createElement('div'); m.className='meta';
+      m.innerHTML = i===failed ? '<b>FAILED</b>no data' : '<b>'+ch(v)+'</b>'+hex(v);
+      d.appendChild(nm); d.appendChild(bits); d.appendChild(m); el.appendChild(d);
+    }
+    failBtn.disabled = failed>=0; rebBtn.disabled = failed<0;
+    if(failed>=0){
+      var rest=[0,1,2,3].filter(function(x){return x!==failed;}).map(function(x){return names[x];});
+      eq.innerHTML='<strong>'+names[failed]+'</strong> = '+rest.join(' ⊕ ');
+    } else eq.textContent='P = D1 ⊕ D2 ⊕ D3';
+  }
+  failBtn.addEventListener('click',function(){
+    failed=Math.floor(Math.random()*4); rebuilt=-1; render();
+    status.textContent=names[failed]+' has failed. Its byte is gone, but the other three disks hold enough to rebuild it.';
+  });
+  rebBtn.addEventListener('click',function(){
+    var f=failed, others=[0,1,2,3].filter(function(x){return x!==f;});
+    var r=others.reduce(function(a,x){return a^val(x);},0);
+    var parts=others.map(function(x){return hex(val(x));}).join(' ⊕ ');
+    failed=-1; rebuilt=f; render();
+    status.textContent='Rebuilt '+names[f]+': '+parts+' = '+hex(r)+' ('+ch(r)+'). Nothing lost.';
+  });
+  render();
+
+  // Enquiry form -> dataclinic.co.uk relay (WPCode snippet dc-xor-contact), which emails Private Key Ltd.
+  var ENDPOINT='https://www.dataclinic.co.uk/wp-json/dc/v1/xor-contact';
+  var form=document.getElementById('enq'), msg=document.getElementById('f-msg'), send=document.getElementById('f-send');
+  var loaded=Date.now();
+  function say(t,cls){msg.textContent=t;msg.className='fmsg'+(cls?' '+cls:'');}
+  form.addEventListener('submit',function(e){
+    e.preventDefault();
+    var need=[['f-name','your name'],['f-email','an email address we can reply to'],['f-message','what you need']], missing=[];
+    form.querySelectorAll('.fld').forEach(function(f){f.classList.remove('bad');});
+    need.forEach(function(n){var el=document.getElementById(n[0]);var v=el.value.trim();
+      if(!v||(el.type==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))){missing.push(n[1]);el.parentNode.classList.add('bad');}});
+    if(missing.length){var last=missing.pop();say('Please add '+(missing.length?missing.join(', ')+' and ':'')+last+'.','err');return;}
+    var body=new URLSearchParams(new FormData(form)); body.append('t',String(loaded));
+    send.disabled=true; say('Sending…');
+    fetch(ENDPOINT,{method:'POST',body:body}).then(function(r){return r.json().catch(function(){return {};}).then(function(j){return {s:r.status,j:j};});})
+    .then(function(x){
+      send.disabled=false;
+      if(x.s===200&&x.j&&x.j.ok){form.reset();say('Thanks. Your enquiry has been sent and we’ll reply by email.','ok');}
+      else if(x.s===429){say('Too many messages from your connection in the last hour. Please try again later.','err');}
+      else if(x.s===400){say('Please check your name, email and message, then send again.','err');}
+      else{say('Your enquiry couldn’t be sent. Please try again in a few minutes.','err');}
+    })
+    .catch(function(){send.disabled=false;
+      var live=/(^|\.)xor\.technology$/.test(location.hostname);
+      say(live?'Your enquiry couldn’t be sent. Please check your connection and try again.':'This is a preview. The form sends once the site is live at xor.technology.','err');});
+  });
+})();
+</script>
+
+</body>
+</html>
