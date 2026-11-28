@@ -50,7 +50,14 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:col
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:14px}
 .mark{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--fg)}
-.mark svg{width:28px;height:28px;flex:none}
+.mark svg{width:28px;height:28px;flex:none;color:var(--one);transform-origin:50% 50%;animation:xor-coin 1.6s cubic-bezier(.65,0,.35,1) .5s both}
+.mark svg g{animation:xor-coin-shade 1.6s cubic-bezier(.65,0,.35,1) .5s both}
+.mark:hover svg,.mark:focus-visible svg{animation-name:xor-coin-again;animation-delay:0s}
+.mark:hover svg g,.mark:focus-visible svg g{animation-name:xor-coin-shade-again;animation-delay:0s}
+@keyframes xor-coin{from{transform:perspective(200px) rotateY(0)}to{transform:perspective(200px) rotateY(360deg)}}
+@keyframes xor-coin-again{from{transform:perspective(200px) rotateY(0)}to{transform:perspective(200px) rotateY(360deg)}}
+@keyframes xor-coin-shade{0%,100%{color:var(--one)}50%{color:color-mix(in srgb,var(--one) 65%,#000)}}
+@keyframes xor-coin-shade-again{0%,100%{color:var(--one)}50%{color:color-mix(in srgb,var(--one) 65%,#000)}}
 .mark b{font:800 20px/1 var(--display);font-stretch:125%;letter-spacing:.02em}
 .mark span{font:400 13px/1 var(--mono);color:var(--muted)}
 nav{display:flex;gap:22px;flex-wrap:wrap}
@@ -170,7 +177,7 @@ footer p{margin:0;max-width:44em}
 <header>
   <div class="wrap bar">
     <a class="mark" href="#top" aria-label="XOR Technology home">
-      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M16 3v26M3 16h26" stroke="currentColor" stroke-width="2.5"/></svg>
+      <svg viewBox="0 0 32 32" aria-hidden="true"><g><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M16 3v26M3 16h26" stroke="currentColor" stroke-width="2.5"/></g></svg>
       <b>XOR</b><span>.technology</span>
     </a>
     <nav aria-label="Main">
